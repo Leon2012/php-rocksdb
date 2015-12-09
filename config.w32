@@ -1,0 +1,13 @@
+// $Id$
+// vim:ft=javascript
+
+// If your extension references something external, use ARG_WITH
+// ARG_WITH("rocksdb", "for rocksdb support", "no");
+
+// Otherwise, use ARG_ENABLE
+// ARG_ENABLE("rocksdb", "enable rocksdb support", "no");
+
+if (PHP_ROCKSDB != "no") {
+	EXTENSION("rocksdb", "rocksdb.c");
+}
+
