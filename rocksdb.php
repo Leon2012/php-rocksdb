@@ -12,7 +12,7 @@ if (!$rocksdb) {
 }
 echo $rocksdb->get("noexists");
 
-/*
+
 //$rocksdb->set("key1", "hello world");
 echo $rocksdb->get("key1");
 
@@ -27,7 +27,7 @@ echo $rocksdb->get("k2");
 echo $rocksdb->del("k2");
 
 echo $rocksdb->get("k2");
- */
+ 
 
 $rocksdb->close();
 

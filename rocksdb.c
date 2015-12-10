@@ -94,7 +94,11 @@ static PHP_METHOD(Rocksdb, __construct) {
 	int path_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &path, &path_len) == FAILURE) {
-		RETURN_NULL();
+		RETURN_FALSE;
+	}
+
+	if (path == NULL || path_len == 0) {
+		RETURN_FALSE;
 	}
 	
 	rocksdb_t *db;
@@ -109,6 +113,7 @@ static PHP_METHOD(Rocksdb, __construct) {
 	char *err = NULL;
 	db = rocksdb_open(options, path, &err);
 	if (err != NULL) {
+		rocksdb_options_destroy(options);
 		RETURN_FALSE;
 	}
 	
@@ -125,13 +130,19 @@ static PHP_METHOD(Rocksdb, del) {
 		RETURN_FALSE;
 	}
 
+	if (key == NULL || key_len == 0) {
+		RETURN_FALSE;
+	}
+	
+
 	rocksdb_writeoptions_t *writeoptions = rocksdb_writeoptions_create();
 	char *err = NULL;
 	rocksdb_delete(objval->db, writeoptions, key, key_len, &err);
+	rocksdb_writeoptions_destroy(writeoptions);
+
 	if (err != NULL) {
 		RETURN_FALSE;
 	}
-	rocksdb_writeoptions_destroy(writeoptions);
 	RETURN_TRUE;
 }
 
@@ -154,10 +165,11 @@ static PHP_METHOD(Rocksdb, set) {
 	rocksdb_writeoptions_t *writeoptions = rocksdb_writeoptions_create();
 	char *err = NULL;
 	rocksdb_put(objval->db, writeoptions, key, key_len, value, value_len, &err);
+	rocksdb_writeoptions_destroy(writeoptions);
+
 	if (err != NULL) {
 		RETURN_FALSE;
 	}
-	rocksdb_writeoptions_destroy(writeoptions);
 	RETURN_TRUE;
 }
 
