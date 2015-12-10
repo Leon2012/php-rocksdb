@@ -50,6 +50,10 @@ typedef struct _rocksdb_object{
 //zend_object析构方法
 void rocksdb_dtor(void *object TSRMLS_DC) {
 	rocksdb_object *objval = (rocksdb_object *)object;
+	if (objval->db != NULL) {
+		rocksdb_close(objval->db);
+		objval->db = NULL;
+	}
 	zend_object_std_dtor(&(objval->obj) TSRMLS_CC);
 	efree(objval);//释放对像
 }
@@ -105,11 +109,30 @@ static PHP_METHOD(Rocksdb, __construct) {
 	char *err = NULL;
 	db = rocksdb_open(options, path, &err);
 	if (err != NULL) {
-		RETURN_NULL();
+		RETURN_FALSE;
 	}
 	
 	objval->db = db;
 	rocksdb_options_destroy(options);
+}
+
+static PHP_METHOD(Rocksdb, del) {
+	rocksdb_object *objval = ROCKSDB_FETCH_OBJECT(getThis());
+	char *key;
+	int key_len;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &key, &key_len) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	rocksdb_writeoptions_t *writeoptions = rocksdb_writeoptions_create();
+	char *err = NULL;
+	rocksdb_delete(objval->db, writeoptions, key, key_len, &err);
+	if (err != NULL) {
+		RETURN_FALSE;
+	}
+	rocksdb_writeoptions_destroy(writeoptions);
+	RETURN_TRUE;
 }
 
 static PHP_METHOD(Rocksdb, set) {
@@ -120,6 +143,11 @@ static PHP_METHOD(Rocksdb, set) {
 	int value_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss", &key, &key_len, &value, &value_len) == FAILURE) {
+		RETURN_FALSE;
+	}
+	
+	if (key == NULL || key_len == 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "key is empty!!!");
 		RETURN_FALSE;
 	}
 
@@ -139,17 +167,28 @@ static PHP_METHOD(Rocksdb, get) {
 	int key_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &key, &key_len) == FAILURE) {
-		RETURN_NULL();
+		RETURN_FALSE;
 	}
 	
+	if (key == NULL || key_len == 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "key is empty!!!");
+		RETURN_FALSE;
+	}
+
 	rocksdb_readoptions_t *readoptions = rocksdb_readoptions_create();
 	size_t len;
 	char *err = NULL;
 	char *value = rocksdb_get(objval->db, readoptions, key, key_len, &len, &err);
-	if (err != NULL) {
-		RETURN_NULL();
-	}
+	
 	rocksdb_readoptions_destroy(readoptions);
+	
+	if (err != NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, err);
+		RETURN_FALSE;
+	}
+	if  (value == NULL) {
+		RETURN_FALSE;
+	}
 
 	RETURN_STRING(value, 1);
 }
@@ -159,6 +198,7 @@ static PHP_METHOD(Rocksdb, close) {
 	rocksdb_object *objval = ROCKSDB_FETCH_OBJECT(getThis());
 	if (objval->db != NULL) {
 		rocksdb_close(objval->db);
+		objval->db = NULL;
 	}
 }
 
@@ -180,6 +220,7 @@ static zend_function_entry rocksdb_methods[] = {
 	PHP_ME(Rocksdb, __construct, Rocksdb__construct_arginfo, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Rocksdb, set, Rocksdb_set_arginfo, ZEND_ACC_PUBLIC)
 	PHP_ME(Rocksdb, get, Rocksdb_get_arginfo, ZEND_ACC_PUBLIC)
+	PHP_ME(Rocksdb, del, Rocksdb_get_arginfo, ZEND_ACC_PUBLIC)
 	PHP_ME(Rocksdb, close, NULL, ZEND_ACC_PUBLIC)
 	{NULL, NULL, NULL}
 };
